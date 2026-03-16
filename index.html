@@ -338,25 +338,44 @@ function genId(){
 function initPeer(){
   setSt('init','Menginisialisasi...');
   dbg('Memulai PeerJS...');
-  const myGeneratedId = genId();
-  dbg('ID dibuat: '+myGeneratedId);
 
-  // broker.peerjs.com = server resmi terbaru PeerJS (stabil, HTTPS ready)
-  peer=new Peer(myGeneratedId,{
-    host: 'broker.peerjs.com',
-    port: 443,
-    path: '/',
-    secure: true,
-    debug: 1,
-    config: {
-      iceServers:[
-        {urls:'stun:stun.l.google.com:19302'},
-        {urls:'stun:stun1.l.google.com:19302'},
-        {urls:'stun:stun2.l.google.com:19302'},
-        {urls:'stun:global.stun.twilio.com:3478'}
-      ]
-    }
-  });
+  const isHttps = location.protocol === 'https:';
+  dbg('Protokol: '+ location.protocol + (isHttps ? ' (mode cloud)' : ' (mode lokal)'));
+
+  if(isHttps){
+    // Di Vercel / hosting HTTPS → pakai PeerJS default cloud, paling stabil
+    // Tidak perlu generate ID sendiri, server yang assign
+    dbg('Menggunakan PeerJS cloud default...');
+    peer = new Peer({
+      debug: 1,
+      config:{
+        iceServers:[
+          {urls:'stun:stun.l.google.com:19302'},
+          {urls:'stun:stun1.l.google.com:19302'},
+          {urls:'stun:stun2.l.google.com:19302'},
+          {urls:'stun:global.stun.twilio.com:3478'}
+        ]
+      }
+    });
+  } else {
+    // Di lokal (file://) → generate ID sendiri untuk skip HTTP fetch yang di-blokir browser
+    const myGeneratedId = genId();
+    dbg('Mode lokal, ID dibuat: '+myGeneratedId);
+    peer = new Peer(myGeneratedId,{
+      host: 'broker.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true,
+      debug: 1,
+      config:{
+        iceServers:[
+          {urls:'stun:stun.l.google.com:19302'},
+          {urls:'stun:stun1.l.google.com:19302'},
+          {urls:'stun:global.stun.twilio.com:3478'}
+        ]
+      }
+    });
+  }
 
   peer.on('open',id=>{
     dbg('✓ Peer siap! ID: '+id);
