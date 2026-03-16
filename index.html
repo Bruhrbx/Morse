@@ -398,6 +398,19 @@ function initPeer(){
     incConn=c;
     document.getElementById('incId').textContent='dari: '+c.peer;
     document.getElementById('incOverlay').classList.add('show');
+
+    // PENTING: pasang listener data/close SEKARANG supaya tidak kelewat
+    // event 'open' mungkin sudah firing sebelum user klik Terima
+    c.on('data',raw=>{
+      try{
+        const d=typeof raw==='string'?JSON.parse(raw):raw;
+        dbg('Data diterima: '+JSON.stringify(d).substring(0,80));
+        if(d.type==='location'){showPeerLoc(d.loc);toast('📍 Lokasi lawan bicara diterima!');}
+        else if(d.type==='morse'){recvMsg(d);}
+      }catch(e){dbg('Data parse error: '+e);}
+    });
+    c.on('close',()=>{dbg('Koneksi ditutup');onDisc(c.peer);});
+    c.on('error',e=>{dbg('Conn error: '+e);onDisc(c.peer);});
   });
 
   peer.on('error',e=>{
@@ -499,10 +512,37 @@ function setupConn(c){
 
 function acceptConn(){
   document.getElementById('incOverlay').classList.remove('show');
-  if(!incConn){return;}
-  const c=incConn;incConn=null;
-  setupConn(c);
-  toast('✓ Koneksi diterima');
+  if(!incConn){toast('Koneksi sudah tidak ada');return;}
+  const c=incConn; incConn=null;
+  conn=c;
+
+  // Tampilkan UI konek
+  function onConnOpen(){
+    dbg('✓ Koneksi terbuka dengan: '+c.peer);
+    hidePairing();
+    setSt('connected','Terhubung dengan '+c.peer);
+    addContact(c.peer);
+    enableMorse();
+    showMsgs();
+    document.getElementById('discBtn').style.display='';
+    document.getElementById('targetInput').value='';
+    toast('✓ Terhubung dengan '+c.peer);
+    setTimeout(()=>{
+      try{
+        c.send(JSON.stringify({type:'location',loc:myLoc||null}));
+        dbg('Lokasi dikirim ke peer');
+      }catch(e){dbg('Gagal kirim lokasi: '+e);}
+    },400);
+  }
+
+  // Kalau sudah open (event sudah keburu firing) → langsung panggil
+  if(c.open){
+    dbg('Koneksi sudah open sebelum diterima, langsung aktifkan');
+    onConnOpen();
+  } else {
+    // Belum open, tunggu event
+    c.on('open', onConnOpen);
+  }
 }
 function rejectConn(){
   document.getElementById('incOverlay').classList.remove('show');
