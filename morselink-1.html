@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MorseLink</title>
+  <script>
+  // Load PeerJS with fallback CDNs
+  (function(){
+    function tryLoad(urls, idx){
+      if(idx>=urls.length){document.getElementById('dbgLog').textContent='[ERROR] Semua CDN gagal load PeerJS. Cek koneksi internet.';return;}
+      var s=document.createElement('script');
+      s.src=urls[idx];
+      s.onload=function(){console.log('[ML] PeerJS loaded from: '+urls[idx]);};
+      s.onerror=function(){console.warn('[ML] CDN gagal: '+urls[idx]);tryLoad(urls,idx+1);};
+      document.head.appendChild(s);
+    }
+    tryLoad([
+      'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js',
+      'https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js',
+      'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js'
+    ], 0);
+  })();
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--amber:#f5a623;--amber-dim:#7a4e0e;--green:#39ff14;--red:#ff3b3b;--bg:#080806;--panel:#0d0d09;--border:#221e0e;--text:#e8d5a3;--dim:#5a4d30;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);pointer-events:none;z-index:9999;}
+.hdr{text-align:center;padding:20px 16px 14px;border-bottom:1px solid var(--border);position:relative;}
+.hdr::after{content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:180px;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);}
+.logo{font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;letter-spacing:6px;color:var(--amber);text-shadow:0 0 20px rgba(245,166,35,.5);}
+.logo-sub{font-size:.65rem;letter-spacing:3px;color:var(--dim);margin-top:3px;}
+.app{max-width:960px;margin:0 auto;padding:20px 14px;display:grid;grid-template-columns:260px 1fr;gap:18px;}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;}
+.ptitle{font-family:'Orbitron',sans-serif;font-size:.58rem;letter-spacing:3px;color:var(--amber);text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.sidebar{display:flex;flex-direction:column;gap:14px;}
+.my-profile{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.avatar{width:60px;height:60px;border-radius:50%;border:2px solid var(--amber-dim);display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:rgba(245,166,35,.05);position:relative;cursor:pointer;transition:all .3s;}
+.avatar.online::after{content:'';position:absolute;bottom:2px;right:2px;width:11px;height:11px;background:var(--green);border-radius:50%;box-shadow:0 0 7px var(--green);border:2px solid var(--bg);}
+.id-label{font-size:.6rem;color:var(--dim);letter-spacing:2px;}
+.my-id-box{font-size:.7rem;color:var(--amber);background:rgba(245,166,35,.08);border:1px solid var(--amber-dim);padding:5px 10px;border-radius:2px;cursor:pointer;word-break:break-all;text-align:center;transition:all .2s;width:100%;}
+.my-id-box:hover{background:rgba(245,166,35,.15);}
+.copy-hint{font-size:.58rem;color:var(--dim);}
+input[type=text]{background:rgba(245,166,35,.04);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.75rem;padding:8px 10px;border-radius:2px;outline:none;width:100%;transition:all .2s;margin-bottom:7px;}
+input[type=text]:focus{border-color:var(--amber-dim);background:rgba(245,166,35,.08);}
+input[type=text]::placeholder{color:var(--dim);}
+.btn{font-family:'Orbitron',sans-serif;font-size:.58rem;letter-spacing:2px;text-transform:uppercase;border:1px solid var(--amber-dim);background:transparent;color:var(--amber);padding:9px 12px;border-radius:2px;cursor:pointer;transition:all .2s;width:100%;}
+.btn:hover:not(:disabled){background:rgba(245,166,35,.1);border-color:var(--amber);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.btn.red{border-color:#8b0000;color:var(--red);}
+.btn.red:hover:not(:disabled){background:rgba(255,59,59,.1);border-color:var(--red);}
+.contact-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:2px;border:1px solid transparent;}
+.contact-item.active{background:rgba(245,166,35,.08);border-color:var(--amber-dim);}
+.c-avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--amber-dim);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:rgba(245,166,35,.05);position:relative;}
+.c-avatar.online::after{content:'';position:absolute;bottom:1px;right:1px;width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);border:1.5px solid var(--bg);}
+.c-info{flex:1;min-width:0;}
+.c-name{font-size:.72rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.c-status{font-size:.58rem;color:var(--dim);margin-top:2px;}
+.no-c{font-size:.68rem;color:var(--dim);text-align:center;padding:12px 0;}
+.chat-area{display:flex;flex-direction:column;gap:14px;}
+.statusbar{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--panel);border:1px solid var(--border);border-radius:3px;font-size:.68rem;}
+.si{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all .3s;}
+.si.connected{background:var(--green);box-shadow:0 0 8px var(--green);animation:pg 2s infinite;}
+.si.connecting{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pa 1s infinite;}
+.si.error{background:var(--red);box-shadow:0 0 8px var(--red);}
+@keyframes pg{0%,100%{box-shadow:0 0 4px var(--green);}50%{box-shadow:0 0 14px var(--green);}}
+@keyframes pa{0%,100%{opacity:1;}50%{opacity:.4;}}
+.st{flex:1;color:var(--dim);}
+.st.on{color:var(--text);}
+/* LOCATION CARD */
+.loc-card{background:var(--panel);border:1px solid rgba(57,255,20,.25);border-radius:3px;padding:14px;display:none;align-items:flex-start;gap:12px;animation:locin .4s ease;}
+.loc-card.show{display:flex;}
+@keyframes locin{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+.loc-icon{font-size:1.8rem;flex-shrink:0;}
+.loc-body{flex:1;}
+.loc-title{font-family:'Orbitron',sans-serif;font-size:.6rem;letter-spacing:2px;color:var(--green);margin-bottom:5px;}
+.loc-place{font-size:.78rem;color:var(--text);line-height:1.5;}
+.loc-coords{font-size:.6rem;color:var(--dim);margin-top:3px;}
+.loc-badge{display:inline-flex;align-items:center;gap:4px;font-size:.55rem;background:rgba(57,255,20,.08);border:1px solid rgba(57,255,20,.2);color:var(--green);padding:2px 8px;border-radius:10px;margin-top:6px;}
+/* PAIRING */
+.pairing{display:none;flex-direction:column;align-items:center;justify-content:center;padding:36px;background:var(--panel);border:1px solid var(--border);border-radius:3px;gap:18px;}
+.pairing.show{display:flex;}
+.rings{position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center;}
+.ring{position:absolute;border-radius:50%;border:1px solid var(--amber);animation:rexp 2s infinite;}
+.ring:nth-child(1){width:36px;height:36px;}
+.ring:nth-child(2){width:62px;height:62px;animation-delay:.5s;}
+.ring:nth-child(3){width:86px;height:86px;animation-delay:1s;}
+@keyframes rexp{0%{opacity:1;transform:scale(.8);}100%{opacity:0;transform:scale(1.1);}}
+.ring-c{width:26px;height:26px;background:rgba(245,166,35,.15);border:2px solid var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:1;}
+.pt{font-family:'Orbitron',sans-serif;font-size:.72rem;letter-spacing:3px;color:var(--amber);}
+.pdots span{animation:fd 1.5s infinite;color:var(--amber);}
+.pdots span:nth-child(2){animation-delay:.3s;}
+.pdots span:nth-child(3){animation-delay:.6s;}
+@keyframes fd{0%,100%{opacity:.2;}50%{opacity:1;}}
+/* MESSAGES */
+.msgs-wrap{display:none;flex-direction:column;}
+.msgs{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth;}
+.msgs::-webkit-scrollbar{width:3px;}
+.msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.empty-ch{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--dim);}
+.msg{display:flex;flex-direction:column;gap:3px;max-width:88%;animation:mi .3s ease;}
+@keyframes mi{from{opacity:0;transform:translateY(7px);}to{opacity:1;}}
+.msg.sent{align-self:flex-end;align-items:flex-end;}
+.msg.recv{align-self:flex-start;align-items:flex-start;}
+.msg-morse{font-size:.78rem;letter-spacing:3px;padding:7px 11px;border-radius:2px;line-height:1.7;word-break:break-all;}
+.sent .msg-morse{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:var(--amber);}
+.recv .msg-morse{background:rgba(57,255,20,.06);border:1px solid rgba(57,255,20,.2);color:#a0e899;}
+.msg-dec{font-size:.7rem;color:var(--dim);padding:0 3px;}
+.msg-time{font-size:.58rem;color:rgba(107,92,58,.5);}
+/* MORSE INPUT */
+.morse-area{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;display:flex;flex-direction:column;gap:12px;}
+.live-disp{min-height:60px;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:2px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;}
+.live-label{font-size:.55rem;letter-spacing:3px;color:var(--dim);text-transform:uppercase;}
+.live-morse{font-size:1rem;letter-spacing:5px;color:var(--amber);text-shadow:0 0 10px rgba(245,166,35,.4);min-height:26px;display:flex;align-items:center;flex-wrap:wrap;gap:3px;}
+.live-dec{font-size:.82rem;color:var(--text);min-height:18px;letter-spacing:2px;}
+.tap-guide{display:flex;gap:18px;font-size:.6rem;color:var(--dim);justify-content:center;flex-wrap:wrap;}
+.tap-guide span{display:flex;align-items:center;gap:5px;}
+.gs{font-size:.85rem;color:var(--amber);}
+.tap-btn{width:100%;height:68px;background:transparent;border:2px solid var(--amber-dim);border-radius:3px;color:var(--amber);font-family:'Orbitron',sans-serif;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:border-color .05s,box-shadow .05s;position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+.tap-btn:disabled{opacity:.2;cursor:not-allowed;}
+.tap-btn.pressing{border-color:var(--amber);box-shadow:0 0 28px rgba(245,166,35,.4),inset 0 0 18px rgba(245,166,35,.08);}
+.tap-lbl{position:relative;z-index:1;pointer-events:none;}
+.btm{display:flex;gap:8px;}
+.btn-send{flex:1;font-family:'Orbitron',sans-serif;font-size:.62rem;letter-spacing:2px;text-transform:uppercase;border:1px solid var(--amber);background:rgba(245,166,35,.1);color:var(--amber);padding:10px;border-radius:2px;cursor:pointer;transition:all .2s;}
+.btn-send:hover:not(:disabled){background:rgba(245,166,35,.2);}
+.btn-send:disabled{opacity:.3;cursor:not-allowed;}
+.btn-clr{font-family:'Share Tech Mono',monospace;font-size:.68rem;border:1px solid var(--border);background:transparent;color:var(--dim);padding:10px 13px;border-radius:2px;cursor:pointer;transition:all .2s;}
+.btn-clr:hover{border-color:var(--dim);color:var(--text);}
+.morse-ref{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:3px;}
+.ref-item{display:flex;align-items:center;gap:5px;font-size:.58rem;padding:2px 3px;}
+.ref-ch{color:var(--text);min-width:9px;}
+.ref-cd{color:var(--amber-dim);letter-spacing:1px;}
+/* INCOMING */
+.inc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9997;align-items:center;justify-content:center;}
+.inc-overlay.show{display:flex;}
+.inc-card{background:var(--panel);border:1px solid var(--amber);border-radius:4px;padding:28px 32px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:13px;animation:icp 1s infinite;}
+@keyframes icp{0%,100%{box-shadow:0 0 30px rgba(245,166,35,.3);}50%{box-shadow:0 0 60px rgba(245,166,35,.6);}}
+.inc-title{font-family:'Orbitron',sans-serif;font-size:.75rem;letter-spacing:4px;color:var(--amber);}
+.inc-id{font-size:.72rem;color:var(--text);}
+.inc-acts{display:flex;gap:10px;margin-top:6px;}
+.btn-ok{font-family:'Orbitron',sans-serif;font-size:.62rem;letter-spacing:2px;border:1px solid var(--green);background:rgba(57,255,20,.1);color:var(--green);padding:10px 18px;border-radius:2px;cursor:pointer;}
+.btn-no{font-family:'Orbitron',sans-serif;font-size:.62rem;letter-spacing:2px;border:1px solid var(--red);background:rgba(255,59,59,.1);color:var(--red);padding:10px 18px;border-radius:2px;cursor:pointer;}
+.toast{position:fixed;top:16px;right:16px;background:var(--panel);border:1px solid var(--amber-dim);color:var(--amber);font-size:.68rem;letter-spacing:1px;padding:9px 14px;border-radius:2px;box-shadow:0 0 18px rgba(245,166,35,.2);transform:translateX(220px);opacity:0;transition:all .3s;z-index:10000;max-width:300px;}
+.toast.show{transform:translateX(0);opacity:1;}
+/* DEBUG */
+.dbg{font-size:.55rem;color:var(--dim);padding:5px 8px;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:2px;max-height:64px;overflow-y:auto;font-family:'Share Tech Mono',monospace;line-height:1.5;}
+@media(max-width:640px){.app{grid-template-columns:1fr;}.logo{font-size:1.4rem;}}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="logo">MORSELINK</div>
+  <div class="logo-sub">Real-Time Morse Code Messenger</div>
+</header>
+
+<div class="app">
+<aside class="sidebar">
+  <div class="panel">
+    <div class="ptitle">▸ Station Saya</div>
+    <div class="my-profile">
+      <div class="avatar online">📡</div>
+      <div class="id-label">ID STATION KAMU</div>
+      <div class="my-id-box" id="myId" onclick="copyId()">
+        <span id="myIdSpinner" style="opacity:.5;letter-spacing:1px;font-size:.6rem">⟳ menghubungkan...</span>
+        <span id="myIdCode" style="display:none;font-size:.95rem;letter-spacing:4px;font-weight:bold"></span>
+      </div>
+      <div class="copy-hint" id="copyHint" style="opacity:.4">menunggu server...</div>
+      <button class="btn" id="copyBtn" onclick="copyId()" style="display:none;margin-top:2px;padding:5px 10px;font-size:.55rem">⎘ SALIN ID</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle">▸ Hubungkan ke Orang</div>
+    <input type="text" id="targetInput" placeholder="Tempel ID teman di sini..." maxlength="36" autocomplete="off" spellcheck="false">
+    <button class="btn" id="connectBtn" onclick="doConnect()">◉ Hubungkan</button>
+  </div>
+
+  <div class="panel" style="flex:1">
+    <div class="ptitle">▸ Koneksi Aktif</div>
+    <div id="contactsList"><div class="no-c">Belum ada koneksi</div></div>
+  </div>
+
+  <button class="btn red" id="discBtn" style="display:none" onclick="doDisconnect()">✕ Putus Koneksi</button>
+</aside>
+
+<main class="chat-area">
+  <div class="statusbar">
+    <div class="si" id="si"></div>
+    <div class="st" id="st">Menginisialisasi...</div>
+  </div>
+
+  <!-- PEER LOCATION CARD -->
+  <div class="loc-card" id="locCard">
+    <div class="loc-icon">🗺️</div>
+    <div class="loc-body">
+      <div class="loc-title">📍 LOKASI LAWAN BICARA</div>
+      <div class="loc-place" id="locPlace">Memuat...</div>
+      <div class="loc-coords" id="locCoords"></div>
+      <div class="loc-badge">🟢 Live Location Aktif</div>
+    </div>
+  </div>
+
+  <div class="pairing" id="pairingEl">
+    <div class="rings">
+      <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+      <div class="ring-c">📡</div>
+    </div>
+    <div class="pt">MENGHUBUNGKAN</div>
+    <div class="pdots"><span>.</span><span>.</span><span>.</span></div>
+    <div id="pairingCountdown" style="font-size:.6rem;color:var(--dim);letter-spacing:2px"></div>
+  </div>
+
+  <div class="msgs-wrap" id="msgsWrap">
+    <div class="msgs" id="msgs">
+      <div class="empty-ch" id="emptyChat">
+        <div style="font-size:1.8rem;opacity:.3">📻</div>
+        <div style="font-size:.65rem;letter-spacing:2px;text-align:center">Terhubung!<br>Mulai kirim kode morse</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="morse-area">
+    <div class="live-disp">
+      <div class="live-label">▸ Yang kamu ketuk sekarang</div>
+      <div class="live-morse" id="liveMorse"><span style="opacity:.2;font-size:.65rem;letter-spacing:1px">Ketuk tombol di bawah...</span></div>
+      <div class="live-dec" id="liveDec"><span style="opacity:.2;font-size:.62rem">Teks terdekode muncul di sini</span></div>
+    </div>
+    <div class="tap-guide">
+      <span><span class="gs">·</span> Singkat = titik</span>
+      <span><span class="gs">—</span> Tahan = garis</span>
+      <span><span class="gs">|</span> Jeda = huruf baru</span>
+    </div>
+    <button class="tap-btn" id="tapBtn" disabled
+      onmousedown="startTap()" onmouseup="endTap()" onmouseleave="leaveTap()"
+      ontouchstart="startTap(event)" ontouchend="endTap(event)">
+      <span class="tap-lbl">◉ KETUK MORSE</span>
+    </button>
+    <div class="btm">
+      <button class="btn-clr" onclick="clearInput()">✕ Hapus</button>
+      <button class="btn-send" id="sendBtn" disabled onclick="sendMsg()">↑ KIRIM PESAN MORSE</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ptitle" onclick="toggleRef()" style="cursor:pointer">▸ Referensi Kode Morse <span id="refArrow" style="float:right">▾</span></div>
+    <div class="morse-ref" id="morseRef" style="display:none;margin-top:8px"></div>
+  </div>
+
+  <!-- Debug log (shows connection info) -->
+  <div class="dbg" id="dbgLog"></div>
+</main>
+</div>
+
+<!-- TIMEOUT ERROR -->
+<div class="inc-overlay" id="timeoutOverlay">
+  <div class="inc-card" style="border-color:var(--red);animation:none;box-shadow:0 0 40px rgba(255,59,59,.35)">
+    <div style="font-size:2.2rem">⏱️</div>
+    <div class="inc-title" style="color:var(--red);letter-spacing:3px">KONEKSI TIMEOUT</div>
+    <div class="inc-id">ID <b id="timeoutId" style="color:var(--amber)"></b> tidak merespons</div>
+    <div style="font-size:.65rem;color:var(--dim);text-align:center;line-height:1.7;max-width:240px">
+      Kemungkinan penyebab:<br>
+      • ID salah atau tidak ada<br>
+      • Orang tersebut sedang offline<br>
+      • Belum buka website MorseLink
+    </div>
+    <button class="btn-ok" onclick="closeTimeout()" style="margin-top:4px;width:100%;text-align:center">✓ Tutup &amp; Coba Lagi</button>
+  </div>
+</div>
+
+<!-- INCOMING -->
+<div class="inc-overlay" id="incOverlay">
+  <div class="inc-card">
+    <div style="font-size:2rem">📡</div>
+    <div class="inc-title">KONEKSI MASUK</div>
+    <div class="inc-id" id="incId">dari: unknown</div>
+    <div class="inc-acts">
+      <button class="btn-ok" onclick="acceptConn()">✓ Terima</button>
+      <button class="btn-no" onclick="rejectConn()">✕ Tolak</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========== MORSE TABLE =========== */
+const M={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',0:'-----',1:'.----',2:'..---',3:'...--',4:'....-',5:'.....',6:'-....',7:'--...',8:'---..',9:'----.','.':'.-.-.-',',':'--..--','?':'..--..','/':'-..-.','!':'-.-.--'};
+const MR={};Object.entries(M).forEach(([k,v])=>{MR[v]=k;});
+function morseDecode(s){return s.split('   ').map(w=>w.split(' ').map(c=>c==='/'?' ':MR[c]||'?').join('')).join(' ');}
+
+/* =========== GEOLOCATION =========== */
+let myLoc=null;
+
+function grabLocation(){
+  if(!navigator.geolocation){dbg('Geolocation tidak didukung browser ini');return;}
+  navigator.geolocation.getCurrentPosition(p=>{
+    myLoc={lat:p.coords.latitude.toFixed(5),lng:p.coords.longitude.toFixed(5),acc:Math.round(p.coords.accuracy)};
+    dbg('Lokasi GPS didapat: '+myLoc.lat+','+myLoc.lng);
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${myLoc.lat}&lon=${myLoc.lng}&format=json&accept-language=id`)
+      .then(r=>r.json()).then(d=>{
+        const a=d.address||{};
+        myLoc.city=a.city||a.town||a.village||a.county||'';
+        myLoc.country=a.country||'';
+        const parts=[a.road||a.suburb,a.city||a.town||a.village,a.state,a.country].filter(Boolean);
+        myLoc.display=parts.slice(0,4).join(', ')||`${myLoc.lat}, ${myLoc.lng}`;
+        dbg('Alamat: '+myLoc.display);
+      }).catch(()=>{myLoc.display=`Koordinat: ${myLoc.lat}, ${myLoc.lng}`;});
+  },err=>{dbg('Geo gagal: '+err.message);},{enableHighAccuracy:true,timeout:12000});
+}
+
+function showPeerLoc(loc){
+  const card=document.getElementById('locCard');
+  document.getElementById('locPlace').textContent=loc&&loc.display?loc.display:'Lokasi tidak dibagikan';
+  if(loc&&loc.lat)document.getElementById('locCoords').textContent=`${loc.lat}°, ${loc.lng}° · akurasi ~${loc.acc}m`;
+  else document.getElementById('locCoords').textContent='';
+  card.classList.add('show');
+}
+
+/* =========== PEERJS =========== */
+let peer=null,conn=null,incConn=null;
+
+function dbg(msg){
+  const el=document.getElementById('dbgLog');
+  const t=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  el.textContent+='['+t+'] '+msg+'\n';
+  el.scrollTop=el.scrollHeight;
+  console.log('[ML]',msg);
+}
+
+function genId(){
+  const c='abcdefghijkmnpqrstuvwxyz23456789';
+  let id='ml-';
+  for(let i=0;i<8;i++)id+=c[Math.floor(Math.random()*c.length)];
+  return id;
+}
+
+function initPeer(){
+  setSt('init','Menginisialisasi...');
+  dbg('Memulai PeerJS...');
+  const myGeneratedId = genId();
+  dbg('ID dibuat: '+myGeneratedId);
+  // Provide own ID to skip HTTP /id fetch (fixes file:// CORS error)
+  // Use peerjs.com cloud with explicit config
+  peer=new Peer(myGeneratedId,{
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    debug: 1,
+    config: {
+      iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'},
+        {urls:'stun:global.stun.twilio.com:3478'}
+      ]
+    }
+  });
+
+  peer.on('open',id=>{
+    dbg('✓ Peer siap! ID: '+id);
+    // Show ID prominently
+    document.getElementById('myIdSpinner').style.display='none';
+    const codeEl=document.getElementById('myIdCode');
+    codeEl.textContent=id;
+    codeEl.style.display='';
+    document.getElementById('copyHint').textContent='[ klik kotak untuk salin ]';
+    document.getElementById('copyHint').style.opacity='1';
+    document.getElementById('copyBtn').style.display='';
+    setSt('ready','Station aktif — Bagikan ID kamu');
+    toast('✓ Online! ID: '+id);
+    grabLocation();
+  });
+
+  peer.on('connection',c=>{
+    dbg('Koneksi masuk dari: '+c.peer);
+    if(conn&&conn.open){dbg('Tolak — sudah ada koneksi');c.close();return;}
+    incConn=c;
+    document.getElementById('incId').textContent='dari: '+c.peer;
+    document.getElementById('incOverlay').classList.add('show');
+  });
+
+  peer.on('error',e=>{
+    dbg('ERROR: '+e.type+' — '+e.message);
+    if(e.type==='peer-unavailable'){
+      toast('✗ ID tidak ditemukan / offline');
+      setSt('ready','Gagal — coba ID lain');
+      hidePairing();
+      document.getElementById('connectBtn').disabled=false;
+    }else if(e.type==='network'){
+      setSt('error','Jaringan terputus...');
+      setTimeout(()=>{try{if(peer.disconnected)peer.reconnect();}catch(ex){}},2000);
+    }
+  });
+
+  peer.on('disconnected',()=>{
+    dbg('Peer disconnected, reconnecting...');
+    setTimeout(()=>{try{peer.reconnect();}catch(ex){}},2000);
+  });
+}
+
+let connectTimeout=null;
+
+function doConnect(){
+  const id=document.getElementById('targetInput').value.trim();
+  if(!id){toast('Masukkan ID tujuan');return;}
+  if(!peer||!peer.id){toast('Belum siap, tunggu sebentar');return;}
+  if(id===peer.id){toast('Tidak bisa konek ke diri sendiri');return;}
+  dbg('Menghubungkan ke: '+id);
+  setSt('connecting','Menghubungkan ke '+id+'...');
+  showPairing();
+  document.getElementById('connectBtn').disabled=true;
+
+  // Timeout 60 detik — jika tidak ada respons, batalkan
+  clearTimeout(connectTimeout);
+  let countdown=60;
+  updatePairingCountdown(countdown);
+  connectTimeout=setInterval(()=>{
+    countdown--;
+    updatePairingCountdown(countdown);
+    if(countdown<=0){
+      clearInterval(connectTimeout);
+      connectTimeout=null;
+      if(conn&&conn.open)return; // sudah konek, abaikan
+      // Timeout! batalkan
+      try{if(conn){conn.close();conn=null;}}catch(e){}
+      hidePairing();
+      setSt('error','Timeout — '+id+' tidak merespons');
+      document.getElementById('connectBtn').disabled=false;
+      showTimeoutError(id);
+      dbg('✗ Timeout: '+id+' tidak merespons selama 60 detik');
+    }
+  },1000);
+
+  try{
+    const c=peer.connect(id,{reliable:true});
+    setupConn(c);
+  }catch(e){
+    clearInterval(connectTimeout);
+    dbg('Connect error: '+e);
+    hidePairing();
+    document.getElementById('connectBtn').disabled=false;
+    toast('✗ Error: '+e.message);
+  }
+}
+
+function setupConn(c){
+  conn=c;
+  c.on('open',()=>{
+    clearInterval(connectTimeout); connectTimeout=null;
+    dbg('✓ Koneksi terbuka dengan: '+c.peer);
+    hidePairing();
+    setSt('connected','Terhubung dengan '+c.peer);
+    addContact(c.peer);
+    enableMorse();
+    showMsgs();
+    document.getElementById('discBtn').style.display='';
+    document.getElementById('targetInput').value='';
+    toast('✓ Terhubung dengan '+c.peer);
+    // Kirim lokasiku ke peer
+    setTimeout(()=>{
+      try{
+        c.send(JSON.stringify({type:'location',loc:myLoc||null}));
+        dbg('Lokasi dikirim ke peer');
+      }catch(e){dbg('Gagal kirim lokasi: '+e);}
+    },800);
+  });
+  c.on('data',raw=>{
+    try{
+      const d=typeof raw==='string'?JSON.parse(raw):raw;
+      dbg('Data diterima: '+JSON.stringify(d).substring(0,80));
+      if(d.type==='location'){showPeerLoc(d.loc);toast('📍 Lokasi lawan bicara diterima!');}
+      else if(d.type==='morse'){recvMsg(d);}
+    }catch(e){dbg('Data parse error: '+e);}
+  });
+  c.on('close',()=>{dbg('Koneksi ditutup');onDisc(c.peer);});
+  c.on('error',e=>{dbg('Conn error: '+e);onDisc(c.peer);});
+}
+
+function acceptConn(){
+  document.getElementById('incOverlay').classList.remove('show');
+  if(!incConn){return;}
+  const c=incConn;incConn=null;
+  setupConn(c);
+  toast('✓ Koneksi diterima');
+}
+function rejectConn(){
+  document.getElementById('incOverlay').classList.remove('show');
+  if(incConn){try{incConn.close();}catch(e){}incConn=null;}
+}
+function doDisconnect(){
+  if(conn){try{conn.close();}catch(e){}}
+  onDisc();
+}
+function onDisc(pid){
+  conn=null;
+  hidePairing();
+  hideMsgs();
+  disableMorse();
+  document.getElementById('locCard').classList.remove('show');
+  setSt('ready','Terputus'+(pid?' dari '+pid:''));
+  document.getElementById('connectBtn').disabled=false;
+  document.getElementById('discBtn').style.display='none';
+  document.getElementById('contactsList').innerHTML='<div class="no-c">Belum ada koneksi</div>';
+  toast('✗ Koneksi terputus');
+}
+
+/* =========== UI HELPERS =========== */
+function setSt(type,txt){
+  const si=document.getElementById('si');
+  const st=document.getElementById('st');
+  si.className='si'+(type==='connected'?' connected':type==='connecting'?' connecting':type==='error'?' error':'');
+  st.className='st'+(type!=='init'?' on':'');
+  st.textContent=txt;
+}
+function updatePairingCountdown(s){
+  const el=document.getElementById('pairingCountdown');
+  if(el) el.textContent='timeout dalam '+s+'s';
+}
+function showTimeoutError(id){
+  // Show error overlay
+  document.getElementById('timeoutId').textContent=id;
+  document.getElementById('timeoutOverlay').classList.add('show');
+}
+function closeTimeout(){
+  document.getElementById('timeoutOverlay').classList.remove('show');
+}
+function showPairing(){document.getElementById('pairingEl').classList.add('show');document.getElementById('msgsWrap').style.display='none';}
+function hidePairing(){document.getElementById('pairingEl').classList.remove('show');}
+function showMsgs(){document.getElementById('msgsWrap').style.display='flex';document.getElementById('pairingEl').classList.remove('show');}
+function hideMsgs(){document.getElementById('msgsWrap').style.display='none';}
+function enableMorse(){document.getElementById('tapBtn').disabled=false;document.getElementById('sendBtn').disabled=false;}
+function disableMorse(){document.getElementById('tapBtn').disabled=true;document.getElementById('sendBtn').disabled=true;}
+function addContact(pid){document.getElementById('contactsList').innerHTML=`<div class="contact-item active"><div class="c-avatar online">📻</div><div class="c-info"><div class="c-name">${esc(pid)}</div><div class="c-status">● Terhubung</div></div></div>`;}
+function copyId(){
+  const id=document.getElementById('myIdCode').textContent;
+  if(!id){toast('ID belum siap');return;}
+  navigator.clipboard.writeText(id).then(()=>toast('✓ ID disalin: '+id)).catch(()=>toast('ID kamu: '+id));
+}
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3500);
+}
+function toggleRef(){
+  const r=document.getElementById('morseRef');
+  const a=document.getElementById('refArrow');
+  const open=r.style.display!=='none';
+  r.style.display=open?'none':'grid';
+  a.textContent=open?'▾':'▸';
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function buildRef(){
+  document.getElementById('morseRef').innerHTML=Object.entries(M).map(([k,v])=>`<div class="ref-item"><span class="ref-ch">${k}</span><span class="ref-cd">${v}</span></div>`).join('');
+}
+
+/* =========== MESSAGES =========== */
+function sendMsg(){
+  if(curLetter){allLetters.push(curLetter);curLetter='';}
+  clearTimeout(ltT);clearTimeout(wtT);
+  if(!allLetters.length){toast('Ketuk dulu kode morsenya');return;}
+  if(!conn||!conn.open){toast('Tidak terhubung');return;}
+  const ms=allLetters.join(' ').replace(/ \/ /g,'   ').replace(/\//g,'   ').trim();
+  if(!ms){toast('Pesan kosong');return;}
+  const dec=morseDecode(ms);
+  const msg={type:'morse',morse:ms,decoded:dec,time:new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})};
+  try{conn.send(JSON.stringify(msg));addMsg(msg,'sent');clearInput();toast('✓ Terkirim!');}
+  catch(e){toast('✗ Gagal kirim: '+e.message);}
+}
+function recvMsg(msg){addMsg(msg,'recv');playMorse(msg.morse);}
+function addMsg(msg,dir){
+  const c=document.getElementById('msgs');
+  document.getElementById('emptyChat').style.display='none';
+  const d=document.createElement('div');
+  d.className='msg '+dir;
+  d.innerHTML=`<div class="msg-morse">${esc(msg.morse)}</div><div class="msg-dec">${esc(msg.decoded)}</div><div class="msg-time">${dir==='sent'?'↑ Terkirim':'↓ Diterima'} · ${msg.time}</div>`;
+  c.appendChild(d);c.scrollTop=c.scrollHeight;
+}
+
+/* =========== TAP MORSE =========== */
+let tapStart=0,curLetter='',allLetters=[],ltT=null,wtT=null;
+const DOT_MAX=250,LET_GAP=600,WRD_GAP=1500;
+
+function startTap(e){
+  if(e){e.preventDefault();e.stopPropagation();}
+  const btn=document.getElementById('tapBtn');
+  if(btn.disabled||tapStart>0)return;
+  tapStart=Date.now();
+  btn.classList.add('pressing');
+  clearTimeout(ltT);clearTimeout(wtT);
+}
+function endTap(e){
+  if(e){e.preventDefault();e.stopPropagation();}
+  const btn=document.getElementById('tapBtn');
+  if(btn.disabled||tapStart===0)return;
+  btn.classList.remove('pressing');
+  const dur=Date.now()-tapStart;tapStart=0;
+  curLetter+=dur<DOT_MAX?'.':'-';
+  updateLive();
+  clearTimeout(ltT);clearTimeout(wtT);
+  ltT=setTimeout(()=>{
+    if(curLetter){allLetters.push(curLetter);curLetter='';updateLive();}
+    wtT=setTimeout(()=>{
+      if(allLetters.length&&allLetters[allLetters.length-1]!='/'){allLetters.push('/');updateLive();}
+    },WRD_GAP-LET_GAP);
+  },LET_GAP);
+}
+function leaveTap(){if(tapStart>0)endTap();}
+
+function updateLive(){
+  const lm=document.getElementById('liveMorse');
+  const ld=document.getElementById('liveDec');
+  const all=[...allLetters,...(curLetter?[curLetter]:[])];
+  if(!all.length){
+    lm.innerHTML='<span style="opacity:.2;font-size:.65rem;letter-spacing:1px">Ketuk tombol di bawah...</span>';
+    ld.innerHTML='<span style="opacity:.2;font-size:.62rem">Teks terdekode muncul di sini</span>';
+    return;
+  }
+  const parts=all.map((c,i)=>{
+    if(c==='/')return '<span style="opacity:.3"> / </span>';
+    const isActive=i===all.length-1&&!!curLetter;
+    return `<span style="opacity:${isActive?1:.75}">${c.split('').map(s=>`<span>${s}</span>`).join('')}</span>`;
+  });
+  lm.innerHTML=parts.join('<span style="opacity:.15"> </span>');
+  const ms=all.join(' ').replace(/ \/ /g,'   ').replace(/\//g,'   ');
+  ld.textContent=morseDecode(ms)||'';
+}
+function clearInput(){
+  clearTimeout(ltT);clearTimeout(wtT);
+  tapStart=0;curLetter='';allLetters=[];
+  updateLive();
+}
+
+/* =========== AUDIO =========== */
+let actx=null;
+function getACtx(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();return actx;}
+function beep(ms,f=660){return new Promise(r=>{try{const c=getACtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(.25,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+ms/1000);o.start(c.currentTime);o.stop(c.currentTime+ms/1000);setTimeout(r,ms+60);}catch(e){r();}});}
+async function playMorse(s){for(const c of s.split('')){if(c==='.')await beep(100).then(()=>new Promise(r=>setTimeout(r,80)));else if(c==='-')await beep(300).then(()=>new Promise(r=>setTimeout(r,80)));else if(c===' ')await new Promise(r=>setTimeout(r,150));}}
+
+/* =========== KEYBOARD =========== */
+let spDown=false;
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!spDown&&!e.target.matches('input')){spDown=true;startTap();e.preventDefault();}});
+document.addEventListener('keyup',e=>{if(e.code==='Space'&&spDown){spDown=false;endTap();}});
+
+/* =========== BOOT =========== */
+buildRef();
+function waitForPeer(tries){
+  if(typeof Peer!=='undefined'){
+    dbg('PeerJS library siap ✓');
+    initPeer();
+  }else if(tries>0){
+    dbg('Menunggu PeerJS... ('+tries+')');
+    setTimeout(()=>waitForPeer(tries-1),500);
+  }else{
+    dbg('❌ GAGAL load PeerJS. Cek koneksi internet lalu refresh.');
+    setSt('error','Gagal load library — refresh halaman');
+  }
+}
+waitForPeer(20);
+</script>
+</body>
+</html>
