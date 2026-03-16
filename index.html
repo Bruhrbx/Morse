@@ -382,20 +382,56 @@ function initPeer(){
   const isHttps = location.protocol==='https:';
   dbg('Protokol: '+location.protocol);
 
-  // HTTPS (Vercel dll): biarkan server assign ID → paling stabil
-  // Lokal (file://): generate ID sendiri → skip HTTP /id fetch yang di-block CORS
+  // Selalu pakai explicit config — jangan andalkan default (0.peerjs.com sudah mati)
+  // TURN server gratis dari metered.ca untuk tembus NAT/firewall antar jaringan berbeda
+  const peerCfg = {
+    debug: 0,
+    config:{
+      iceServers:[
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        // TURN gratis — wajib ada agar bisa konek beda jaringan
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ],
+      iceCandidatePoolSize: 10
+    }
+  };
+
   if(isHttps){
-    peer = new Peer({debug:0, config:{iceServers:[
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'stun:stun1.l.google.com:19302'},
-      {urls:'stun:stun2.l.google.com:19302'}
-    ]}});
+    // Di Vercel: paksa ke peerjs.com cloud yang aktif (bukan default 0.peerjs.com yg mati)
+    dbg('Mode HTTPS — server: peerjs.com cloud');
+    peer = new Peer(Object.assign({
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true
+    }, peerCfg));
   } else {
-    peer = new Peer(genId(), {debug:0, config:{iceServers:[
-      {urls:'stun:stun.l.google.com:19302'},
-      {urls:'stun:stun1.l.google.com:19302'},
-      {urls:'stun:stun2.l.google.com:19302'}
-    ]}});
+    // Lokal: generate ID sendiri supaya skip HTTP fetch yang di-block CORS
+    dbg('Mode lokal — generate ID sendiri');
+    peer = new Peer(genId(), Object.assign({
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true
+    }, peerCfg));
   }
 
   peer.on('open', id=>{
@@ -448,7 +484,7 @@ function doConnect(){
   setSt('busy','Menghubungkan ke '+id+'...');
   showPairing(true);
   document.getElementById('connectBtn').disabled=true;
-  startCountdown(60, id);
+  startCountdown(20, id);
 
   try{
     const c = peer.connect(id, {reliable:true, serialization:'json'});
